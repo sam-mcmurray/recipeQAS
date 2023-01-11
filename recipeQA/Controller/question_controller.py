@@ -1,5 +1,4 @@
-# type, ingredients, course, country, recipe name
-def sentenceDeconstruction(sentence: str) -> str:
+def sentenceDeconstruction(sentence: str):
     query_builder = QueryBuilder()
     try:
         subjects = sentence.split(";")
@@ -17,8 +16,9 @@ def sentenceDeconstruction(sentence: str) -> str:
                 if word.lower() == "country":
                     query_builder.setCountry(subjects[i].lower())
 
-        query = query_builder.createDBPediaQuery()
-        return query
+        dbPediaQuery = query_builder.createDBPediaQuery()
+        wikidataQuery = query_builder.createWikiDataQuery()
+        return dbPediaQuery, wikidataQuery
     except Exception as e:
         print(e)
     return "Please enter a valid Question"
@@ -141,6 +141,32 @@ class QueryBuilder:
                         'FILTER(LANG(?description)="en").' + recipeName + food_type + ingredient + country + course + \
                         "} LIMIT 100 "
         print(query)
+        return query
+
+    def createWikiDataQuery(self) -> str:
+        if not self.is_recipe_name or not self.is_type or not self.is_country:
+            query = 'SELECT DISTINCT ?food ?foodLabel ?foodDescription ?countryLabel ?timeLabel ?imageLabel ' \
+                    '?inventorLabel ?dishLabel' \
+                    ' WHERE {  ' \
+                    'SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } { SELECT DISTINCT ?food ' \
+                    '?country ?time ?image ?inventor ?dish WHERE { ?food wdt:P527 ?ingredient. ?food wdt:P279 ?dish. ' \
+                    '?dish wdt:P31 wd:Q19861951. ?food wdt:P495 ?country. ?food wdt:P18 ?image. ?food wdt:P575 ?time. '
+            # ' ?food wdt:P61 ?inventor. '
+            recipeName = ""
+            food_type = ""
+            country = ""
+            if self.is_recipe_name:
+                recipeName = '?food rdfs:label ?foodLabel. ' \
+                             'FILTER REGEX (?foodLabel, "' + self.recipe_name + '", "i"). '
+            if self.is_type:
+                food_type = "?dish rdfs:label ?dishLabel. " + \
+                            'FILTER REGEX (?dishLabel, "' + self.food_type + '", "i"). '
+            if self.is_country:
+                country = '?country rdfs:label ?countryLabel. ' \
+                          'FILTER REGEX(?countryLabel, "' + self.country + '", "i" ). '
+
+            query = query + recipeName + country + food_type + '} LIMIT 100 } }'
+            print(query)
         return query
 
     def ingredientQuery(self, value: int) -> str:
